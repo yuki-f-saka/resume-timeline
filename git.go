@@ -17,6 +17,19 @@ type Version struct {
 	PDF     []byte
 }
 
+// meta is the column heading for the i-th version (0-based). Versions that did
+// not come from git carry no hash, so empty fields are dropped rather than
+// leaving stray separators.
+func (v Version) meta(i int) string {
+	parts := []string{fmt.Sprintf("v%d", i+1)}
+	for _, s := range []string{v.Date, v.Short} {
+		if s != "" {
+			parts = append(parts, s)
+		}
+	}
+	return strings.Join(parts, " · ")
+}
+
 func runGit(dir string, args ...string) (string, error) {
 	b, err := runGitBytes(dir, args...)
 	return string(b), err
