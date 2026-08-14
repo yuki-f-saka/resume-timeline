@@ -4,30 +4,37 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
 
-type Version struct {
-	Hash    string
-	Short   string
-	Date    string
-	Subject string
-	Path    string // path of the file as of this commit
-	PDF     []byte
-}
-
-// meta is the column heading for the i-th version (0-based). Versions that did
-// not come from git carry no hash, so empty fields are dropped rather than
-// leaving stray separators.
-func (v Version) meta(i int) string {
-	parts := []string{fmt.Sprintf("v%d", i+1)}
-	for _, s := range []string{v.Date, v.Short} {
-		if s != "" {
-			parts = append(parts, s)
-		}
+// loadGitVersions resolves the file to its repository and returns every
+// committed version of it, oldest first, along with its repo-relative path.
+func loadGitVersions(file string) ([]Version, string, error) {
+	abs, err := filepath.Abs(file)
+	if err != nil {
+		return nil, "", err
 	}
-	return strings.Join(parts, " · ")
+	// resolve symlinks (e.g. /var -> /private/var on macOS) so the path can be
+	// made relative to the repository root git reports
+	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
+		abs = resolved
+	}
+	rootOut, err := runGit(filepath.Dir(abs), "rev-parse", "--show-toplevel")
+	if err != nil {
+		return nil, "", err
+	}
+	root := strings.TrimSpace(rootOut)
+	rel, err := filepath.Rel(root, abs)
+	if err != nil {
+		return nil, "", err
+	}
+	versions, err := loadVersions(root, rel)
+	if err != nil {
+		return nil, "", err
+	}
+	return versions, rel, nil
 }
 
 func runGit(dir string, args ...string) (string, error) {

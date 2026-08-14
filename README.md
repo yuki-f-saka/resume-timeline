@@ -1,15 +1,15 @@
 # resume-timeline
 
-Visual diff timeline for PDF files tracked in git — see how your resume
-evolved, commit by commit, side by side.
+Visual diff timeline for PDF files — see how your resume evolved, version by
+version, side by side.
 
 ![demo](docs/demo.png)
 
-Git can show you how the *source* of your resume changed, but not how the
-**rendered page** changed. `resume-timeline` pulls every committed version of
-a PDF out of your git history, renders them into one horizontally scrollable
-page (oldest → newest), and overlays GitHub-style diff highlights directly on
-the page image:
+Diff tools can show you how the *source* of your resume changed, but not how
+the **rendered page** changed. `resume-timeline` takes every version of a PDF —
+from your git history, or from the old files you kept in a folder — renders
+them into one horizontally scrollable page (oldest → newest), and overlays
+GitHub-style diff highlights directly on the page image:
 
 - **Added lines** — light green band
 - **Changed lines** — the regions that actually changed are boxed in darker green
@@ -45,15 +45,42 @@ confirm poppler is installed correctly.
 
 ## Usage
 
+Point it at a PDF in a git repository to use its commit history:
+
 ```bash
 resume-timeline -file path/to/resume.pdf -out timeline.html
 open timeline.html
 ```
 
+No git history? Hand it the old PDFs you kept. They are placed on the timeline
+in the order you list them:
+
+```bash
+resume-timeline resume_2022.pdf resume_2023.pdf resume_final.pdf
+resume-timeline old-resumes/*.pdf          # shell glob, so name order
+```
+
+Or let it take a whole directory. File names like `resume_final2.pdf` say
+nothing reliable about order, so the modification time decides it (ties broken
+by name):
+
+```bash
+resume-timeline -dir old-resumes/
+```
+
+Either way it prints the order it settled on before doing any rendering, so you
+can interrupt and list the files explicitly if it guessed wrong.
+
+Exactly one input may be given — `-file`, `-dir`, `-demo`, or file arguments.
+
+**Flags must come before file arguments** (`-out x.html a.pdf b.pdf`, not
+`a.pdf b.pdf -out x.html`); Go's flag parser stops at the first argument.
+
 | Flag | Default | Description |
 |---|---|---|
-| `-file` | (required) | PDF file tracked in a git repository |
-| `-demo` | `false` | render the built-in sample instead (no git repository needed) |
+| `-file` | | PDF file tracked in a git repository |
+| `-dir` | | directory of PDF files, oldest first |
+| `-demo` | `false` | render the built-in sample (no git repository needed) |
 | `-out` | `resume-timeline.html` | output HTML file |
 | `-limit` | `0` (all) | show only the N most recent versions |
 | `-dpi` | `150` | rendering resolution |
@@ -69,8 +96,8 @@ scrolling is synchronized across columns so corresponding lines stay aligned
 Diffing rendered PDFs is not a text problem — and a naive pixel diff fails
 the moment one added line shifts everything below it. Instead:
 
-1. Every committed version of the PDF is collected via `git log --follow`
-   (renames are tracked) and rasterized with `pdftoppm`.
+1. Every version is collected — via `git log --follow` (renames are tracked)
+   or straight off disk — and rasterized with `pdftoppm`.
 2. Rows of ink are segmented into **bands** — horizontal strips corresponding
    to text lines — using the page's ink-density profile.
 3. Adjacent versions are aligned band-by-band with an **LCS** over normalized

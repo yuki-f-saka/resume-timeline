@@ -5,24 +5,58 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 )
 
+const usage = `usage: resume-timeline [flags] <input>
+
+  resume-timeline -file resume.pdf      every committed version, from git history
+  resume-timeline v1.pdf v2.pdf v3.pdf  loose PDF files, in the order given
+  resume-timeline -dir old-resumes/     every PDF in a directory, oldest first
+  resume-timeline -demo                 a built-in sample, to see how it looks
+
+flags must come before file arguments:
+  resume-timeline -out timeline.html v1.pdf v2.pdf
+`
+
 func main() {
-	file := flag.String("file", "", "PDF file tracked in a git repository (required unless -demo)")
+	file := flag.String("file", "", "PDF file tracked in a git repository")
+	dir := flag.String("dir", "", "directory of PDF files to place on the timeline, oldest first")
 	demo := flag.Bool("demo", false, "render the built-in sample timeline (no git repository needed)")
 	out := flag.String("out", "resume-timeline.html", "output HTML file")
 	limit := flag.Int("limit", 0, "show only the N most recent versions (0 = all)")
 	dpi := flag.Int("dpi", 150, "PDF rendering resolution")
 	page := flag.Int("page", 1, "PDF page to compare")
+	flag.Usage = func() {
+		fmt.Fprint(os.Stderr, usage)
+		fmt.Fprintln(os.Stderr, "\nflags:")
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 
-	if *file == "" && !*demo {
-		fmt.Fprintln(os.Stderr, "usage: resume-timeline -file <path/to/file.pdf> [-out out.html] [-limit N] [-dpi N] [-page N]")
-		fmt.Fprintln(os.Stderr, "       resume-timeline -demo    # try it without a git repository")
-		os.Exit(2)
+	// the four input modes are alternatives; picking a winner silently would
+	// hide the fact that one of them was ignored
+	var modes []string
+	if *file != "" {
+		modes = append(modes, "-file")
 	}
+	if *dir != "" {
+		modes = append(modes, "-dir")
+	}
+	if *demo {
+		modes = append(modes, "-demo")
+	}
+	if flag.NArg() > 0 {
+		modes = append(modes, "file arguments")
+	}
+	switch {
+	case len(modes) == 0:
+		fmt.Fprint(os.Stderr, usage)
+		os.Exit(2)
+	case len(modes) > 1:
+		die("pick one input, got " + strings.Join(modes, " and "))
+	}
+
 	if _, err := exec.LookPath("pdftoppm"); err != nil {
 		die("pdftoppm not found; install poppler (e.g. `brew install poppler` or `apt install poppler-utils`)")
 	}
@@ -32,11 +66,16 @@ func main() {
 		label    string
 		err      error
 	)
-	if *demo {
+	switch {
+	case *demo:
 		versions, err = loadDemoVersions()
 		label = "demo · sample resume"
-	} else {
+	case *file != "":
 		versions, label, err = loadGitVersions(*file)
+	case *dir != "":
+		versions, label, err = loadDirVersions(*dir)
+	default:
+		versions, label, err = loadFileVersions(flag.Args())
 	}
 	if err != nil {
 		die(err.Error())
@@ -49,37 +88,15 @@ func main() {
 		versions = versions[len(versions)-*limit:]
 	}
 
+	// loose files have no commit order to trust, so show the order that was
+	// settled on while there is still time to interrupt
+	if *file == "" && !*demo {
+		printOrder(versions)
+	}
+
 	if err := buildTimeline(versions, label, *out, *page, *dpi); err != nil {
 		die(err.Error())
 	}
-}
-
-// loadGitVersions resolves the file to its repository and returns every
-// committed version of it, oldest first, along with its repo-relative path.
-func loadGitVersions(file string) ([]Version, string, error) {
-	abs, err := filepath.Abs(file)
-	if err != nil {
-		return nil, "", err
-	}
-	// resolve symlinks (e.g. /var -> /private/var on macOS) so the path can be
-	// made relative to the repository root git reports
-	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
-		abs = resolved
-	}
-	rootOut, err := runGit(filepath.Dir(abs), "rev-parse", "--show-toplevel")
-	if err != nil {
-		return nil, "", err
-	}
-	root := strings.TrimSpace(rootOut)
-	rel, err := filepath.Rel(root, abs)
-	if err != nil {
-		return nil, "", err
-	}
-	versions, err := loadVersions(root, rel)
-	if err != nil {
-		return nil, "", err
-	}
-	return versions, rel, nil
 }
 
 // buildTimeline rasterizes every version, diffs adjacent pairs and writes the

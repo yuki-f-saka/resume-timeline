@@ -83,7 +83,7 @@ body { margin: 0; display: flex; flex-direction: column;
 {{range .Cols}}  <div class="col">
     <div class="colhead">
       <div class="meta">{{.Meta}}</div>
-      <div class="subj">{{.Subject}}</div>
+      {{if .Subject}}<div class="subj">{{.Subject}}</div>{{end}}
     </div>
     <div class="page">
       <img class="pageimg" src="data:image/png;base64,{{.PNGB64}}" loading="lazy">
