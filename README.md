@@ -20,7 +20,7 @@ dependencies at view time — just open it in a browser.
 
 ## Install
 
-Requires Go 1.22+ and [poppler](https://poppler.freedesktop.org/) (`pdftoppm`):
+Requires Go 1.26+ and [poppler](https://poppler.freedesktop.org/) (`pdftoppm`):
 
 ```bash
 brew install poppler          # macOS
@@ -28,6 +28,20 @@ sudo apt install poppler-utils  # Debian/Ubuntu
 
 go install github.com/yuki-f-saka/resume-timeline@latest
 ```
+
+`go install` puts the binary in `$(go env GOPATH)/bin` (usually `~/go/bin`).
+Add that directory to your `PATH` if `resume-timeline` is not found.
+
+Then check that everything works — this needs no git repository and no PDF of
+your own:
+
+```bash
+resume-timeline -demo
+open resume-timeline.html
+```
+
+It renders a built-in four-version sample resume, so it doubles as a way to
+confirm poppler is installed correctly.
 
 ## Usage
 
@@ -39,6 +53,7 @@ open timeline.html
 | Flag | Default | Description |
 |---|---|---|
 | `-file` | (required) | PDF file tracked in a git repository |
+| `-demo` | `false` | render the built-in sample instead (no git repository needed) |
 | `-out` | `resume-timeline.html` | output HTML file |
 | `-limit` | `0` (all) | show only the N most recent versions |
 | `-dpi` | `150` | rendering resolution |
@@ -48,15 +63,6 @@ The viewer opens with the two most recent versions side by side. Drag the
 column-width slider to zoom out to five or more versions at once; vertical
 scrolling is synchronized across columns so corresponding lines stay aligned
 (toggle it off in the toolbar).
-
-Try it without your own history:
-
-```bash
-git clone https://github.com/yuki-f-saka/resume-timeline
-cd resume-timeline
-./examples/demo.sh   # builds a throwaway git repo with 4 sample versions
-open demo-timeline.html
-```
 
 ## How it works
 
@@ -88,6 +94,19 @@ page images in plain HTML/CSS.
 - Band alignment assumes horizontally stable text (no per-line reflow of the
   whole page). Works best for documents like resumes that keep a consistent
   layout between versions.
+
+## Development
+
+`-demo` renders the embedded sample PDFs directly and never touches git. To
+exercise the git code path end to end, `./examples/demo.sh` builds a throwaway
+repository from the same four samples and renders it:
+
+```bash
+./examples/demo.sh
+open demo-timeline.html
+```
+
+Both should report the same per-version add/chg/del counts.
 
 ## License
 

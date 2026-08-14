@@ -7,9 +7,7 @@ import (
 )
 
 type ColumnView struct {
-	Index    int
-	Short    string
-	Date     string
+	Meta     string
 	Subject  string
 	PNGB64   string
 	Overlays []Overlay
@@ -84,7 +82,7 @@ body { margin: 0; display: flex; flex-direction: column;
 <div class="cols">
 {{range .Cols}}  <div class="col">
     <div class="colhead">
-      <div class="meta">v{{.Index}} · {{.Date}} · {{.Short}}</div>
+      <div class="meta">{{.Meta}}</div>
       <div class="subj">{{.Subject}}</div>
     </div>
     <div class="page">
