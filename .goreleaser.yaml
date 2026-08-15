@@ -1,0 +1,57 @@
+# Builds every release asset from one runner. There is no cgo — PDF rendering
+# is PDFium compiled to WebAssembly, run on the pure-Go wazero — so a plain
+# GOOS/GOARCH matrix covers all five targets with no cross-compiler in sight.
+version: 2
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    ignore:
+      # nobody is running this on Windows on ARM yet; drop it rather than
+      # publish an asset that goes untested
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w -X main.buildVersion={{.Version}}
+
+archives:
+  # No version in the file name, on purpose: it is what makes
+  # /releases/latest/download/<name> a stable URL, so the install command in
+  # the README does not go stale with every release. The binary reports its
+  # own version with -version.
+  - name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github
+  filters:
+    exclude:
+      - "^Merge pull request"
+
+release:
+  footer: |
+    ## Install
+
+    macOS (Apple Silicon) or Linux — no Go toolchain needed:
+
+    ```bash
+    curl -sSfL https://github.com/yuki-f-saka/resume-timeline/releases/latest/download/resume-timeline_darwin_arm64.tar.gz | tar xz
+    ./resume-timeline -demo
+    ```
+
+    Substitute `linux_amd64`, `linux_arm64` or `darwin_amd64` as needed; Windows
+    users want the `windows_amd64.zip`.
+
+    Downloading through a browser instead is fine, but macOS will quarantine
+    the file — `xattr -d com.apple.quarantine resume-timeline` clears it.
