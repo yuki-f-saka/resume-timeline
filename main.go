@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 )
 
@@ -15,6 +16,9 @@ const usage = `usage: resume-timeline [flags] <input>
   resume-timeline -dir old-resumes/     every PDF in a directory, oldest first
   resume-timeline -demo                 a built-in sample, to see how it looks
 
+The timeline opens in your browser. Nothing is written to the current
+directory unless you ask for it with -out.
+
 flags must come before file arguments:
   resume-timeline -out timeline.html v1.pdf v2.pdf
 `
@@ -23,7 +27,7 @@ func main() {
 	file := flag.String("file", "", "PDF file tracked in a git repository")
 	dir := flag.String("dir", "", "directory of PDF files to place on the timeline, oldest first")
 	demo := flag.Bool("demo", false, "render the built-in sample timeline (no git repository needed)")
-	out := flag.String("out", "resume-timeline.html", "output HTML file")
+	out := flag.String("out", "", "write the HTML here and keep it (default: a temp file, opened in your browser)")
 	limit := flag.Int("limit", 0, "show only the N most recent versions (0 = all)")
 	dpi := flag.Int("dpi", 150, "PDF rendering resolution")
 	page := flag.Int("page", 1, "PDF page to compare")
@@ -55,10 +59,6 @@ func main() {
 		os.Exit(2)
 	case len(modes) > 1:
 		die("pick one input, got " + strings.Join(modes, " and "))
-	}
-
-	if _, err := exec.LookPath("pdftoppm"); err != nil {
-		die("pdftoppm not found; install poppler (e.g. `brew install poppler` or `apt install poppler-utils`)")
 	}
 
 	var (
@@ -94,23 +94,46 @@ func main() {
 		printOrder(versions)
 	}
 
-	if err := buildTimeline(versions, label, *out, *page, *dpi); err != nil {
+	// without -out nothing is left behind: running this inside your own resume
+	// repository should not add an untracked file you might commit by accident
+	keep := *out != ""
+	dest := *out
+	if !keep {
+		f, err := os.CreateTemp("", "resume-timeline-*.html")
+		if err != nil {
+			die(err.Error())
+		}
+		f.Close()
+		dest = f.Name()
+	}
+
+	if err := buildTimeline(versions, label, dest, *page, *dpi); err != nil {
 		die(err.Error())
 	}
+	if !keep {
+		openInBrowser(dest)
+	}
+}
+
+// openInBrowser shows the result without the user having to copy a path around.
+// Failing to open is not worth an error: the path was already printed.
+func openInBrowser(path string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", path)
+	default:
+		cmd = exec.Command("xdg-open", path)
+	}
+	cmd.Run()
 }
 
 // buildTimeline rasterizes every version, diffs adjacent pairs and writes the
 // viewer. It is agnostic about where the versions came from.
 func buildTimeline(versions []Version, label, out string, page, dpi int) error {
-	tmp, err := os.MkdirTemp("", "resume-timeline")
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(tmp)
-
 	pages := make([]*Page, len(versions))
 	for i, v := range versions {
-		p, err := renderPDF(tmp, i, page, v.PDF, dpi)
+		p, err := renderPDF(page, v.PDF, dpi)
 		if err != nil {
 			return fmt.Errorf("rendering %s failed: %v", v.meta(i), err)
 		}

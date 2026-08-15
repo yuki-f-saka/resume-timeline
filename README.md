@@ -18,39 +18,50 @@ GitHub-style diff highlights directly on the page image:
 Everything is emitted as a single self-contained HTML file. No server, no
 dependencies at view time — just open it in a browser.
 
+## Your resume stays on your machine
+
+A resume is personal, so this tool is built not to ask you for any trust you
+can verify yourself:
+
+- **It makes no network requests at all.** Your PDFs are never uploaded
+  anywhere; the only programs it runs are `git`, on your own repository.
+- **It is one static binary with nothing to install alongside it.** PDF
+  rendering is [PDFium](https://pdfium.googlesource.com/pdfium/) compiled to
+  WebAssembly and run on [wazero](https://wazero.io/), a pure-Go runtime, so
+  there is no poppler, no cgo, and no system library to leave behind. To
+  uninstall, delete the binary.
+- **It writes nothing to your working directory** unless you ask it to with
+  `-out`. Running it inside your resume repository will not leave an untracked
+  file for you to accidentally commit.
+
 ## Install
 
-Requires Go 1.26+ and [poppler](https://poppler.freedesktop.org/) (`pdftoppm`):
-
 ```bash
-brew install poppler          # macOS
-sudo apt install poppler-utils  # Debian/Ubuntu
-
 go install github.com/yuki-f-saka/resume-timeline@latest
 ```
 
-`go install` puts the binary in `$(go env GOPATH)/bin` (usually `~/go/bin`).
-Add that directory to your `PATH` if `resume-timeline` is not found.
+Requires Go 1.26+ to build. `go install` puts the binary in
+`$(go env GOPATH)/bin` (usually `~/go/bin`) — add that directory to your `PATH`
+if `resume-timeline` is not found.
 
-Then check that everything works — this needs no git repository and no PDF of
-your own:
+Then check that it works. This needs no git repository and no PDF of your own:
 
 ```bash
 resume-timeline -demo
-open resume-timeline.html
 ```
 
-It renders a built-in four-version sample resume, so it doubles as a way to
-confirm poppler is installed correctly.
+It renders a built-in four-version sample resume and opens it in your browser.
 
 ## Usage
 
 Point it at a PDF in a git repository to use its commit history:
 
 ```bash
-resume-timeline -file path/to/resume.pdf -out timeline.html
-open timeline.html
+resume-timeline -file path/to/resume.pdf
 ```
+
+The timeline opens in your browser. Pass `-out timeline.html` when you want to
+keep the file instead.
 
 No git history? Hand it the old PDFs you kept. They are placed on the timeline
 in the order you list them:
@@ -81,7 +92,7 @@ Exactly one input may be given — `-file`, `-dir`, `-demo`, or file arguments.
 | `-file` | | PDF file tracked in a git repository |
 | `-dir` | | directory of PDF files, oldest first |
 | `-demo` | `false` | render the built-in sample (no git repository needed) |
-| `-out` | `resume-timeline.html` | output HTML file |
+| `-out` | (a temp file) | write the HTML here and keep it |
 | `-limit` | `0` (all) | show only the N most recent versions |
 | `-dpi` | `150` | rendering resolution |
 | `-page` | `1` | PDF page to compare |
@@ -97,7 +108,7 @@ Diffing rendered PDFs is not a text problem — and a naive pixel diff fails
 the moment one added line shifts everything below it. Instead:
 
 1. Every version is collected — via `git log --follow` (renames are tracked)
-   or straight off disk — and rasterized with `pdftoppm`.
+   or straight off disk — and rasterized with PDFium.
 2. Rows of ink are segmented into **bands** — horizontal strips corresponding
    to text lines — using the page's ink-density profile.
 3. Adjacent versions are aligned band-by-band with an **LCS** over normalized
