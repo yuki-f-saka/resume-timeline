@@ -36,21 +36,43 @@ can verify yourself:
 
 ## Install
 
+Download the binary for your machine — no Go toolchain, no other install
+step. On macOS (Apple Silicon):
+
 ```bash
-go install github.com/yuki-f-saka/resume-timeline@latest
+curl -sSfL https://github.com/yuki-f-saka/resume-timeline/releases/latest/download/resume-timeline_darwin_arm64.tar.gz | tar xz
 ```
 
-Requires Go 1.26+ to build. `go install` puts the binary in
-`$(go env GOPATH)/bin` (usually `~/go/bin`) — add that directory to your `PATH`
-if `resume-timeline` is not found.
+Swap in `darwin_amd64` (Intel Mac), `linux_amd64`, or `linux_arm64`; on
+Windows take `resume-timeline_windows_amd64.zip` from the
+[latest release](https://github.com/yuki-f-saka/resume-timeline/releases/latest).
+Move the extracted `resume-timeline` anywhere on your `PATH`, or just run it
+from where it landed.
+
+Downloading through the browser works too, but macOS quarantines files that
+arrive that way and will refuse to run this one. Either use the `curl` command
+above, or clear the flag: `xattr -d com.apple.quarantine resume-timeline`.
 
 Then check that it works. This needs no git repository and no PDF of your own:
 
 ```bash
-resume-timeline -demo
+./resume-timeline -demo
 ```
 
 It renders a built-in four-version sample resume and opens it in your browser.
+
+### With the Go toolchain
+
+If you have Go 1.26+ and would rather build it yourself:
+
+```bash
+go install github.com/yuki-f-saka/resume-timeline@latest
+```
+
+This puts the binary in `$(go env GOPATH)/bin` (usually `~/go/bin`) — add that
+directory to your `PATH` if `resume-timeline` is not found.
+
+Either way, `resume-timeline -version` reports what you have.
 
 ## Usage
 
@@ -96,6 +118,7 @@ Exactly one input may be given — `-file`, `-dir`, `-demo`, or file arguments.
 | `-limit` | `0` (all) | show only the N most recent versions |
 | `-dpi` | `150` | rendering resolution |
 | `-page` | `1` | PDF page to compare |
+| `-version` | | print the version and exit |
 
 The viewer opens with the two most recent versions side by side. Drag the
 column-width slider to zoom out to five or more versions at once; vertical

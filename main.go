@@ -31,12 +31,20 @@ func main() {
 	limit := flag.Int("limit", 0, "show only the N most recent versions (0 = all)")
 	dpi := flag.Int("dpi", 150, "PDF rendering resolution")
 	page := flag.Int("page", 1, "PDF page to compare")
+	showVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Usage = func() {
 		fmt.Fprint(os.Stderr, usage)
 		fmt.Fprintln(os.Stderr, "\nflags:")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
+
+	// answered before the input modes are examined: -version is a question
+	// about the binary, not a timeline to render
+	if *showVersion {
+		fmt.Println("resume-timeline " + versionString())
+		return
+	}
 
 	// the four input modes are alternatives; picking a winner silently would
 	// hide the fact that one of them was ignored
