@@ -2,13 +2,9 @@ package main
 
 import (
 	"encoding/base64"
-	"fmt"
 	"image"
 	"image/draw"
 	"image/png"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 )
 
@@ -52,35 +48,6 @@ type Overlay struct {
 }
 
 type Box struct{ X0, W float64 }
-
-// renderPDF rasterizes one page of the PDF to PNG and analyzes it.
-func renderPDF(tmp string, idx, page int, pdf []byte, dpi int) (*Page, error) {
-	pdfPath := filepath.Join(tmp, fmt.Sprintf("v%02d.pdf", idx))
-	if err := os.WriteFile(pdfPath, pdf, 0o644); err != nil {
-		return nil, err
-	}
-	prefix := filepath.Join(tmp, fmt.Sprintf("v%02d", idx))
-	pg := fmt.Sprint(page)
-	cmd := exec.Command("pdftoppm", "-png", "-r", fmt.Sprint(dpi), "-f", pg, "-l", pg, pdfPath, prefix)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("pdftoppm: %v: %s", err, strings.TrimSpace(string(out)))
-	}
-	matches, _ := filepath.Glob(prefix + "-*.png")
-	if len(matches) == 0 {
-		return nil, fmt.Errorf("pdftoppm produced no output for page %d of %s", page, pdfPath)
-	}
-	raw, err := os.ReadFile(matches[0])
-	if err != nil {
-		return nil, err
-	}
-	img, err := png.Decode(strings.NewReader(string(raw)))
-	if err != nil {
-		return nil, err
-	}
-	p := analyzePage(img)
-	p.PNGB64 = base64.StdEncoding.EncodeToString(raw)
-	return p, nil
-}
 
 func analyzePage(img image.Image) *Page {
 	b := img.Bounds()
