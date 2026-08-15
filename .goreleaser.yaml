@@ -35,6 +35,11 @@ checksum:
 
 changelog:
   use: github
+  # Attribution by GitHub username only. The default format falls back to
+  # "Name <email>" whenever it cannot resolve a username — which it cannot for
+  # the first release, there being no earlier tag to compare against — and that
+  # publishes the commit author's email address in the release notes.
+  format: "{{ .SHA }}: {{ .Message }}{{ with .AuthorUsername }} (@{{ . }}){{ end }}"
   filters:
     exclude:
       - "^Merge pull request"
